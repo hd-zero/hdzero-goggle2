@@ -82,19 +82,19 @@ uint32_t pclk_phase_default[2][VIDEO_SOURCE_NUM] = {
     },
     {
         // GOGGLE_VER_2
-        0x00000001,
+        0x00000004,
         0x00000004, // VIDEO_SOURCE_MENU_UI
-        0x00000000, // VIDEO_SOURCE_HDZERO_IN_720P60_50
-        0x00000000, // VIDEO_SOURCE_HDZERO_IN_720P90
-        0x00000000, // VIDEO_SOURCE_HDZERO_IN_1080P30
-        0x00000000, // VIDEO_SOURCE_AV_IN
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_1080P50
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_1080P60
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_1080POTHER
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_720P50
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_720P60
-        0x00000000, // VIDEO_SOURCE_HDMI_IN_720P100
-        0x00000000, // VIDEO_SOURCE_TP2825_EX, DO NOT USE
+        0x00000004, // VIDEO_SOURCE_HDZERO_IN_720P60_50
+        0x00000004, // VIDEO_SOURCE_HDZERO_IN_720P90
+        0x00000004, // VIDEO_SOURCE_HDZERO_IN_1080P30
+        0x00000004, // VIDEO_SOURCE_AV_IN
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_1080P50
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_1080P60
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_1080POTHER
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_720P50
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_720P60
+        0x00000004, // VIDEO_SOURCE_HDMI_IN_720P100
+        0x00000004, // VIDEO_SOURCE_TP2825_EX, DO NOT USE
     },
 };
 
@@ -475,7 +475,12 @@ void vclk_phase_set(video_source_t source, uint8_t reg_8d_sel) {
     else
         I2C_Write(ADDR_FPGA, 0x8d, (vclk_phase[source] >> 24) & 0xff);
 
-    I2C_Write(ADDR_FPGA, 0x8e, (vclk_phase[source] >> 16) & 0xff);
+    if (source == VIDEO_SOURCE_HDZERO_IN_720P60_50 || source == VIDEO_SOURCE_HDZERO_IN_720P90) {
+        I2C_Write(ADDR_FPGA, 0x8e, 0x01);
+    } else {
+        I2C_Write(ADDR_FPGA, 0x8e, (vclk_phase[source] >> 16) & 0xff);
+    }
+
     I2C_Write(ADDR_AL, 0x14, (vclk_phase[source] >> 8) & 0xff);
 
     IT66121_set_phase(vclk_phase[source] & 3, 0);
@@ -531,13 +536,21 @@ void csic_pclk_invert_set(uint8_t is_invert) {
 void pclk_phase_set(video_source_t source) {
     LOGI("pclk_phase_set %d", pclk_phase[source]);
     // bit[0] hdmi in
-    IT66021_Set_Pclk((pclk_phase[source] >> 0) & 1);
+    if (source == VIDEO_SOURCE_HDMI_IN_1080P50 || source == VIDEO_SOURCE_HDMI_IN_1080P60 || source == VIDEO_SOURCE_HDMI_IN_1080POTHER) {
+        IT66021_Set_Pclk((pclk_phase[source] >> 0) & 1);
+    } else {
+        IT66021_Set_Pclk((pclk_phase[source] >> 0) & 1);
+    }
 
     // bit[1] analog in
     TP2825_Set_Pclk((pclk_phase[source] >> 1) & 1);
 
     // bit[2] osd
-    vdpo_sync_ctrl_set((pclk_phase[source] >> 2) & 1, 0, 0);
+    if (source == VIDEO_SOURCE_AV_IN) {
+        vdpo_sync_ctrl_set((pclk_phase[source] >> 2) & 1, 1, 0);
+    } else {
+        vdpo_sync_ctrl_set((pclk_phase[source] >> 2) & 1, 0, 0);
+    }
 
     // bit[3] dvr
     csic_pclk_invert_set((pclk_phase[source] >> 3) & 1);
@@ -603,7 +616,7 @@ void Display_UI_init() {
     I2C_Write(ADDR_FPGA, 0x84, 0x11);
 
     OLED_SetTMG(0);
-    system_exec("aww 0x0300b084 0x00015565"); // Set vdpo clock driver strength to level 2. Refer datasheet 12.7.5.11
+    system_exec("aww 0x0300b084 0x00002aaa"); // Set vdpo clock driver strength to level 2. Refer datasheet 12.7.5.11
 
     if (GOGGLE_VER_2)
         I2C_Write(ADDR_FPGA, 0xa7, 0x00);
@@ -706,6 +719,37 @@ void Display_1080P30_t(int mode) {
     system_exec("aww 0x06542018 0x00000044"); // disable horizontal chroma FIR filter.
 }
 
+void Display_1080P24_t(int mode) {
+    OLED_display(0);
+    I2C_Write(ADDR_FPGA, 0x8C, 0x00);
+
+    system_exec("dispw -s vdpo 1080p60");
+    g_hw_stat.vdpo_tmg = VDPO_TMG_1080P60;
+    vclk_phase_set(VIDEO_SOURCE_HDZERO_IN_1080P30, 0);
+    pclk_phase_set(VIDEO_SOURCE_HDZERO_IN_1080P30);
+
+    I2C_Write(ADDR_FPGA, 0x80, 0x84);
+    // I2C_Write(ADDR_FPGA, 0x84, 0x00); // close OSD
+
+    DM5680_SetFPS(mode);
+    MFPGA_Set1080P30();
+
+    if (GOGGLE_VER_2 == 0)
+        OLED_SetTMG(2);
+    else
+        OLED_SetTMG(0);
+
+    if (GOGGLE_VER_2)
+        I2C_Write(ADDR_FPGA, 0xa7, 0x00);
+
+    I2C_Write(ADDR_FPGA, 0x8C, 0x01);
+
+    g_hw_stat.source_mode = SOURCE_MODE_HDZERO;
+    Display_VO_SWITCH(1);
+    OLED_display(1);
+    system_exec("aww 0x06542018 0x00000044"); // disable horizontal chroma FIR filter.
+}
+
 void Display_720P60_50(int mode, uint8_t is_43) {
     pthread_mutex_lock(&hardware_mutex);
     Display_720P60_50_t(mode, is_43);
@@ -715,6 +759,12 @@ void Display_720P60_50(int mode, uint8_t is_43) {
 void Display_720P90(int mode) {
     pthread_mutex_lock(&hardware_mutex);
     Display_720P90_t(mode);
+    pthread_mutex_unlock(&hardware_mutex);
+}
+
+void Display_1080P24(int mode) {
+    pthread_mutex_lock(&hardware_mutex);
+    Display_1080P24_t(mode);
     pthread_mutex_unlock(&hardware_mutex);
 }
 
@@ -777,16 +827,18 @@ int HDZERO_detect() // return = 1: vtmg to V536 changed
                 break;
             case VR_1080P30:
                 Display_1080P30_t(CAM_MODE);
-
+                break;
+            case VR_1080P24:
+                Display_1080P24_t(CAM_MODE);
                 break;
             default:
                 LOGW("cam_mode =%d not suppored!!\n ", CAM_MODE);
                 break;
             }
 
-            if (CAM_MODE == VR_1080P30)
+            if (CAM_MODE == VR_1080P30 || CAM_MODE == VR_1080P24)
                 fhd_req = 1;
-            else if (cam_mode_last == VR_1080P30)
+            else if (cam_mode_last == VR_1080P30 || cam_mode_last == VR_1080P24)
                 fhd_req = -1;
             dvr_update_vi_conf(CAM_MODE);
             system_script(REC_STOP_LIVE);
@@ -820,6 +872,7 @@ void AV_Mode_Switch_fpga(int is_pal) {
     }
     I2C_Write(ADDR_FPGA, 0x06, 0x0F);
     system_exec("aww 0x06542018 0x00000044"); // disable horizontal chroma FIR filter.
+    vdpo_sync_ctrl_set((pclk_phase[VIDEO_SOURCE_AV_IN] >> 2) & 1, 1, 0);
 }
 
 void AV_Mode_Switch(int is_pal) {
@@ -932,8 +985,9 @@ int AV_in_detect() // return = 1: vtmg to V536 changed
             g_hw_stat.av_pal_w = g_hw_stat.av_pal_w ? 0 : 1;
 
             TP2825_Switch_Mode(g_hw_stat.av_pal_w);
-            if (GOGGLE_VER_2)
+            if (GOGGLE_VER_2) {
                 AV_Mode_Switch(g_hw_stat.av_pal_w);
+            }
             // LOGI("Switch mode:%d", g_hw_stat.av_pal_w);
 
             if (g_hw_stat.av_pal_w)

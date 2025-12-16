@@ -72,7 +72,7 @@ void self_test() {
         LOGI("%sTP2825 ver = 0x%x ", msg[i == 0x11], i);
     } else {
         i = I2C_Read(ADDR_TP2825, 0x0B);
-        LOGI("%sTW9900 ver = 0x%x ", msg[i == 0xD0], i);
+        LOGI("%sTP2825 ver = 0x%x ", msg[i == 0xD0], i);
     }
     TP2825_close();
 
