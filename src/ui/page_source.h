@@ -13,6 +13,7 @@ extern page_pack_t pp_source;
 void source_status_timer();
 void source_toggle();
 void source_cycle();
+void source_toggle_cam();
 
 #ifdef __cplusplus
 }

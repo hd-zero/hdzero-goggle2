@@ -62,6 +62,7 @@ static const action_t btnActions[] = {
     {.id = 7, .name = "Star DVR", .functionPtr = &dvr_star},
     {.id = 8, .name = "Toggle source", .functionPtr = &source_toggle},
     {.id = 9, .name = "Cycle source", .functionPtr = &source_cycle},
+    {.id = 11, .name = "Toggle cam", .functionPtr = &source_toggle_cam},
 };
 
 static const action_t rollerActions[] = {

@@ -122,7 +122,7 @@ static void open_element_pos_preview() {
         break;
 
     case SOURCE_ANALOG:
-        app_switch_to_analog();
+        app_switch_to_analog(false);
         break;
     }
 

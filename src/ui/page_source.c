@@ -27,7 +27,18 @@
 static lv_coord_t col_dsc[] = {160, 200, 200, 160, 160, 160, LV_GRID_TEMPLATE_LAST};
 static lv_coord_t row_dsc[] = {60, 60, 60, 60, 60, 60, 60, 60, 60, 60, LV_GRID_TEMPLATE_LAST};
 
-static lv_obj_t *label[5];
+typedef enum {
+    LABEL_HDZERO,
+    LABEL_ANALOG,
+    LABEL_HDMI,
+    LABEL_AVIN,
+    LABEL_OLED,
+
+    LABEL_MAX,
+} source_type_t;
+
+static lv_obj_t *label[LABEL_MAX];
+
 static uint8_t oled_tst_mode = 0; // 0=Normal,1=CB; 2-Grid; 3=All Black; 4=All White,5=Boot logo
 static bool in_sourcepage = false;
 static btn_group_t btn_group0, btn_group1, btn_group2, btn_group3, btn_group4;
@@ -61,16 +72,16 @@ static lv_obj_t *page_source_create(lv_obj_t *parent, panel_arr_t *arr) {
 
     create_select_item(arr, cont);
 
-    label[0] = create_label_item(cont, "HDZero", 1, row++, 3);
+    label[LABEL_HDZERO] = create_label_item(cont, "HDZero", 1, row++, 3);
     if (GOGGLE_VER_2) {
-        label[1] = create_label_item(cont, "Analog", 1, row++, 3);
+        label[LABEL_ANALOG] = create_label_item(cont, "Analog", 1, row++, 3);
     } else {
-        label[1] = create_label_item(cont, _lang("Expansion Module"), 1, row++, 3);
+        label[LABEL_ANALOG] = create_label_item(cont, _lang("Expansion Module"), 1, row++, 3);
     }
     snprintf(buf, sizeof(buf), "HDMI %s", _lang("In"));
-    label[2] = create_label_item(cont, buf, 1, row++, 3);
+    label[LABEL_HDMI] = create_label_item(cont, buf, 1, row++, 3);
     snprintf(buf, sizeof(buf), "AV %s", _lang("In"));
-    label[3] = create_label_item(cont, buf, 1, row++, 3);
+    label[LABEL_AVIN] = create_label_item(cont, buf, 1, row++, 3);
 
     create_btn_group_item(&btn_group0, cont, 2, _lang("HDZero Band"), _lang("Raceband"), _lang("Lowband"), "", "", row++);
     btn_group_set_sel(&btn_group0, g_setting.source.hdzero_band);
@@ -91,10 +102,10 @@ static lv_obj_t *page_source_create(lv_obj_t *parent, panel_arr_t *arr) {
 
     snprintf(buf, sizeof(buf), "< %s", _lang("Back"));
     if (g_setting.storage.selftest) {
-        label[4] = create_label_item(cont, "OLED Pattern: Normal", 1, row++, 3);
+        label[LABEL_OLED] = create_label_item(cont, "OLED Pattern: Normal", 1, row++, 3);
         create_label_item(cont, buf, 1, row++, 3);
     } else {
-        label[4] = NULL;
+        label[LABEL_OLED] = NULL;
         create_label_item(cont, buf, 1, row++, 3);
     }
     pp_source.p_arr.max = row;
@@ -132,7 +143,7 @@ void source_status_timer() {
         }
         snprintf(buf, sizeof(buf), "HDZero: L%d", ch);
     }
-    lv_label_set_text(label[0], buf);
+    lv_label_set_text(label[LABEL_HDZERO], buf);
 
     // analog
     if (GOGGLE_VER_2) {
@@ -144,22 +155,22 @@ void source_status_timer() {
     } else {
         snprintf(buf, sizeof(buf), "%s: %s", _lang("Expansion Module"), state2string(g_source_info.av_bay_status));
     }
-    lv_label_set_text(label[1], buf);
+    lv_label_set_text(label[LABEL_ANALOG], buf);
 
     // hdmi in
     snprintf(buf, sizeof(buf), "HDMI %s: %s", _lang("In"), state2string(g_source_info.hdmi_in_status));
-    lv_label_set_text(label[2], buf);
+    lv_label_set_text(label[LABEL_HDMI], buf);
 
     // av in
     snprintf(buf, sizeof(buf), "AV %s: %s", _lang("In"), state2string(g_source_info.av_in_status));
-    lv_label_set_text(label[3], buf);
+    lv_label_set_text(label[LABEL_AVIN], buf);
 
-    if (g_setting.storage.selftest && label[3]) {
+    if (g_setting.storage.selftest && label[LABEL_AVIN]) {
         uint8_t oled_tm = oled_tst_mode & 0x0F;
         char *pattern_label[6] = {"Normal", "Color Bar", "Grid", "All Black", "All White", "Boot logo"};
         char str[32];
         snprintf(str, sizeof(buf), "OLED Pattern: %s", pattern_label[oled_tm]);
-        lv_label_set_text(label[4], str);
+        lv_label_set_text(label[LABEL_OLED], str);
     }
 }
 
@@ -185,8 +196,8 @@ static void page_source_select_av_in() {
     dvr_enable_line_out(true);
 }
 
-static void page_source_select_analog() {
-    app_switch_to_analog();
+static void page_source_select_analog(bool force_external) {
+    app_switch_to_analog(force_external);
     app_state_push(APP_STATE_VIDEO);
     g_source_info.source = SOURCE_ANALOG;
     dvr_select_audio_source(g_setting.record.audio_source);
@@ -197,7 +208,7 @@ void source_toggle() {
     beep_dur(BEEP_SHORT);
     switch (g_source_info.source) {
     case SOURCE_HDZERO:
-        page_source_select_analog();
+        page_source_select_analog(false);
         break;
     case SOURCE_ANALOG:
         page_source_select_hdzero();
@@ -225,11 +236,47 @@ void source_cycle() {
         page_source_select_hdzero();
         break;
     case SOURCE_AV_IN:
-        page_source_select_analog();
+        page_source_select_analog(false);
         break;
     case SOURCE_HDMI_IN:
         page_source_select_av_in();
         break;
+    }
+}
+
+#include "driver/rtc6715.h"
+void source_toggle_cam() {
+    static bool camera_enabled = false;
+    static source_info_t source_info_backup;
+
+    if (!camera_enabled) {
+        camera_enabled = true;
+        source_info_backup = g_source_info;
+
+        if (g_source_info.source == SOURCE_ANALOG) {
+            RTC6715_Open(0, 0);
+        } else {
+            page_source_select_analog(true);
+        }
+    } else {
+        camera_enabled = false;
+        g_source_info = source_info_backup;
+        switch (g_source_info.source) {
+        case SOURCE_HDZERO:
+            page_source_select_hdzero();
+            break;
+        case SOURCE_ANALOG:
+            // page_source_select_analog(false);
+            RTC6715_Open(1, g_setting.record.audio_source == SETTING_RECORD_AUDIO_SOURCE_AV_IN);
+            RTC6715_SetCH(g_setting.source.analog_channel - 1);
+            break;
+        case SOURCE_AV_IN:
+            page_source_select_av_in();
+            break;
+        case SOURCE_HDMI_IN:
+            page_source_select_hdmi_in();
+            break;
+        }
     }
 }
 
@@ -240,7 +287,7 @@ static void page_source_on_click(uint8_t key, int sel) {
         break;
 
     case 1: // Analog
-        page_source_select_analog();
+        page_source_select_analog(false);
         break;
 
     case 2: // hdmi_in
@@ -287,7 +334,7 @@ static void page_source_on_click(uint8_t key, int sel) {
         break;
 
     case 8:
-        if (g_setting.storage.selftest && label[4]) {
+        if (g_setting.storage.selftest && label[LABEL_OLED]) {
             uint8_t oled_te = (oled_tst_mode != 0);
             uint8_t oled_tm = (oled_tst_mode & 0x0F) - 1;
             // LOGI("OLED TE=%d,TM=%d",oled_te,oled_tm);

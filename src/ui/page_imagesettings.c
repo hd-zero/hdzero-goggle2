@@ -131,7 +131,7 @@ static void page_imagesettings_enter() {
         break;
 
     case SOURCE_ANALOG:
-        app_switch_to_analog();
+        app_switch_to_analog(false);
         g_bShowIMS = true;
         break;
     }

@@ -102,7 +102,7 @@ void start_running(void) {
         app_state_push(APP_STATE_VIDEO);
         if (source == SETTING_AUTOSCAN_SOURCE_ANALOG) { // analog
             g_hw_stat.av_pal[1] = g_setting.source.analog_format;
-            app_switch_to_analog();
+            app_switch_to_analog(false);
             g_source_info.source = SOURCE_ANALOG;
         } else if (source == SETTING_AUTOSCAN_SOURCE_AV_IN) { // AV in
             g_hw_stat.av_pal[0] = g_setting.source.analog_format;

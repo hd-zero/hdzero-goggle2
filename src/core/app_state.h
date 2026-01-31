@@ -37,7 +37,7 @@ void app_state_push(app_state_t state);
 
 void app_switch_to_menu();
 void app_exit_menu();
-void app_switch_to_analog();
+void app_switch_to_analog(bool force_external);
 void app_switch_to_av_in();
 void app_switch_to_hdmi_in();
 void app_switch_to_hdzero(bool is_default);

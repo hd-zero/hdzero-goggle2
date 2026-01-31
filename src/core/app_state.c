@@ -73,17 +73,19 @@ void app_exit_menu() {
         app_switch_to_av_in();
         break;
     case SOURCE_ANALOG:
-        app_switch_to_analog();
+        app_switch_to_analog(false);
         break;
     }
 }
 
-void app_switch_to_analog() {
+void app_switch_to_analog(bool force_external) {
     system_exec("aww 0x0300b084 0x00001555"); // Set vdpo clock driver strength to level 2. Refer datasheet 12.7.5.11
     Analog_Module_Power(0, 1);
 
     if (GOGGLE_VER_2) {
-        if (g_setting.source.analog_module == SETTING_SOURCES_ANALOG_MODULE_INTERNAL) {
+        if (force_external) {
+            RTC6715_Open(0, 0);
+        } else if (g_setting.source.analog_module == SETTING_SOURCES_ANALOG_MODULE_INTERNAL) {
             RTC6715_Open(1, g_setting.record.audio_source == SETTING_RECORD_AUDIO_SOURCE_AV_IN);
             RTC6715_SetCH(g_setting.source.analog_channel - 1);
         } else {
@@ -101,8 +103,11 @@ void app_switch_to_analog() {
     lv_timer_handler();
     Display_Osd(g_setting.record.osd);
 
-    g_setting.autoscan.last_source = SETTING_AUTOSCAN_SOURCE_ANALOG;
-    ini_putl("autoscan", "last_source", g_setting.autoscan.last_source, SETTING_INI);
+    if(!force_external){
+        // save only if not forced to external module
+        g_setting.autoscan.last_source = SETTING_AUTOSCAN_SOURCE_ANALOG;
+        ini_putl("autoscan", "last_source", g_setting.autoscan.last_source, SETTING_INI);
+    }
 
     // audio in&out
     dvr_select_audio_source(g_setting.record.audio_source);
